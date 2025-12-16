@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Question, QuestionType, MediaType } from "../types";
 
 // In a real app, this key comes from environment variables
-const API_KEY = process.env.API_KEY || '';
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 export const generateAIQuiz = async (topic: string = "Tamil Cinema 90s hits"): Promise<Question[]> => {
   if (!API_KEY) {
