@@ -1,8 +1,7 @@
-// Question & Answer Types
 export enum QuestionType {
-  RADIO = 'RADIO',        // Single correct
-  CHECKBOX = 'CHECKBOX',  // Multiple correct
-  TEXT = 'TEXT',          // Typed answer
+  TEXT = 'TEXT',
+  RADIO = 'RADIO',
+  CHECKBOX = 'CHECKBOX',
 }
 
 export enum MediaType {
@@ -12,22 +11,17 @@ export enum MediaType {
   VIDEO = 'VIDEO',
 }
 
-// Core Question Model
 export interface Question {
   id: string;
   text: string;
-
   mediaType: MediaType;
   mediaUrl?: string;
-
   questionType: QuestionType;
   options?: string[];
-
   correctAnswer: string | string[];
   points: number;
 }
 
-// Quiz Model
 export interface Quiz {
   id: string;
   title: string;
@@ -36,16 +30,14 @@ export interface Quiz {
   published: boolean;
 }
 
-// User Model
 export interface User {
   uid: string;
   email: string;
   displayName: string;
-  cinemaAlias: string;
-  isAdmin: boolean;
+  cinemaAlias?: string;
+  isAdmin?: boolean;
 }
 
-// Score Model
 export interface Score {
   quizId: string;
   userId: string;
@@ -54,7 +46,6 @@ export interface Score {
   timestamp: number;
 }
 
-// Leaderboard
 export interface LeaderboardEntry {
   rank: number;
   userName: string;
