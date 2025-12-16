@@ -1,43 +1,51 @@
+// Question & Answer Types
 export enum QuestionType {
-  TEXT = 'TEXT',
-  RADIO = 'RADIO',
-  CHECKBOX = 'CHECKBOX'
+  RADIO = 'RADIO',        // Single correct
+  CHECKBOX = 'CHECKBOX',  // Multiple correct
+  TEXT = 'TEXT',          // Typed answer
 }
 
 export enum MediaType {
   NONE = 'NONE',
   IMAGE = 'IMAGE',
   AUDIO = 'AUDIO',
-  VIDEO = 'VIDEO'
+  VIDEO = 'VIDEO',
 }
 
+// Core Question Model
 export interface Question {
   id: string;
   text: string;
+
   mediaType: MediaType;
-  mediaUrl?: string; // For demo, we might use Base64 or external URLs
+  mediaUrl?: string;
+
   questionType: QuestionType;
-  options?: string[]; // For Radio/Checkbox
-  correctAnswer: string | string[]; // Single string or array of strings for checkbox
+  options?: string[];
+
+  correctAnswer: string | string[];
   points: number;
 }
 
+// Quiz Model
 export interface Quiz {
   id: string;
-  date: string; // ISO Date string YYYY-MM-DD
   title: string;
+  date: string; // YYYY-MM-DD
   questions: Question[];
   published: boolean;
 }
 
+// User Model
 export interface User {
   uid: string;
   email: string;
   displayName: string;
-  cinemaAlias?: string;
-  isAdmin?: boolean;
+  cinemaAlias: string;
+  isAdmin: boolean;
 }
 
+// Score Model
 export interface Score {
   quizId: string;
   userId: string;
@@ -46,6 +54,7 @@ export interface Score {
   timestamp: number;
 }
 
+// Leaderboard
 export interface LeaderboardEntry {
   rank: number;
   userName: string;
