@@ -1,141 +1,114 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Timer, CheckCircle, XCircle, Trophy } from 'lucide-react';
-
+import { GlassCard, NeonButton } from '../components/NeonComponents';
 import { useStore } from '../store';
-import { GlassCard, NeonButton, InputField } from '../components/NeonComponents';
-import { QuestionType } from '../types';
 import { submitScore } from '../services/db';
+import { Timer, CheckCircle, XCircle, Trophy } from 'lucide-react';
+import { Question } from '../types';
 
-const QUESTION_TIME = 15;
-const MAX_POINTS = 10;
-const PENALTY_PER_SEC = 0.5;
+const QUESTION_TIME = 15; // seconds
+const MAX_POINTS = 100;
+const PENALTY_PER_SEC = 3;
 
 const QuizPlayer = () => {
-  const { currentQuiz, user } = useStore();
   const navigate = useNavigate();
+  const { currentQuiz, user } = useStore();
 
   const [index, setIndex] = useState(0);
+  const [answer, setAnswer] = useState<string | string[]>('');
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME);
-  const [answer, setAnswer] = useState<any>('');
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [finished, setFinished] = useState(false);
 
-  const question = currentQuiz?.questions[index];
+  const question: Question | undefined = currentQuiz?.questions[index];
 
-  /* =========================
-     GUARDS
-  ========================== */
   useEffect(() => {
     if (!currentQuiz) navigate('/');
   }, [currentQuiz, navigate]);
 
-  /* =========================
-     TIMER
-  ========================== */
   useEffect(() => {
     if (finished || feedback) return;
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
+      setTimeLeft(t => {
+        if (t <= 1) {
           handleSubmit(true);
           return QUESTION_TIME;
         }
-        return prev - 1;
+        return t - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
   }, [index, feedback, finished]);
 
-  /* =========================
-     HELPERS
-  ========================== */
-  const calculatePoints = () => {
+  const calculateScore = () => {
     const timeTaken = QUESTION_TIME - timeLeft;
-    return Math.max(1, Math.round(MAX_POINTS - timeTaken * PENALTY_PER_SEC));
+    return Math.max(10, MAX_POINTS - timeTaken * PENALTY_PER_SEC);
   };
 
   const isCorrectAnswer = () => {
     if (!question) return false;
 
-    if (question.questionType === QuestionType.TEXT) {
+    if (Array.isArray(question.correctAnswer)) {
       return (
-        String(answer).trim().toLowerCase() ===
-        String(question.correctAnswer).trim().toLowerCase()
+        Array.isArray(answer) &&
+        JSON.stringify(answer.sort()) ===
+          JSON.stringify(question.correctAnswer.sort())
       );
     }
-
-    if (question.questionType === QuestionType.CHECKBOX) {
-      return (
-        JSON.stringify([...answer].sort()) ===
-        JSON.stringify([...(question.correctAnswer as string[])].sort())
-      );
-    }
-
     return answer === question.correctAnswer;
   };
 
-  /* =========================
-     SUBMIT
-  ========================== */
-  const handleSubmit = (timeout = false) => {
+  const handleSubmit = async (timeout = false) => {
     if (!question) return;
 
     const correct = !timeout && isCorrectAnswer();
 
     if (correct) {
-      setScore(prev => prev + calculatePoints());
+      setScore(s => s + calculateScore());
       setFeedback('correct');
     } else {
       setFeedback('wrong');
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setFeedback(null);
       setAnswer('');
       setTimeLeft(QUESTION_TIME);
 
       if (index < currentQuiz!.questions.length - 1) {
-        setIndex(prev => prev + 1);
+        setIndex(i => i + 1);
       } else {
-        finishQuiz(correct);
+        setFinished(true);
+
+        if (user && currentQuiz) {
+          await submitScore({
+            quizId: currentQuiz.id,
+            userId: user.uid,
+            userName: user.cinemaAlias || user.displayName,
+            score: score + (correct ? calculateScore() : 0),
+            timestamp: Date.now(),
+          });
+        }
       }
     }, 1200);
   };
 
-  const finishQuiz = async (lastCorrect: boolean) => {
-    setFinished(true);
-
-    if (user && currentQuiz) {
-      await submitScore({
-        quizId: currentQuiz.id,
-        userId: user.uid,
-        userName: user.cinemaAlias || user.displayName,
-        score: score + (lastCorrect ? calculatePoints() : 0),
-        timestamp: Date.now()
-      });
-    }
-  };
-
-  /* =========================
-     FINISHED SCREEN
-  ========================== */
   if (finished) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <GlassCard className="text-center max-w-md w-full">
-          <Trophy className="w-20 h-20 mx-auto text-yellow-400 mb-4" />
-          <h2 className="text-3xl font-bold mb-2">QUIZ COMPLETE</h2>
-          <p className="text-gray-400 mb-6">Great job, Thalaiva!</p>
-
+      <div className="min-h-screen flex items-center justify-center">
+        <GlassCard className="max-w-md w-full text-center">
+          <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+          <h2 className="text-3xl font-display font-bold mb-4">
+            Quiz Completed
+          </h2>
+          <p className="text-gray-400 mb-6">Final Score</p>
           <div className="text-6xl font-bold text-kolly-cyan mb-6">
             {score}
           </div>
-
           <NeonButton className="w-full" onClick={() => navigate('/')}>
             Back to Dashboard
           </NeonButton>
@@ -146,21 +119,18 @@ const QuizPlayer = () => {
 
   if (!question) return null;
 
-  /* =========================
-     UI
-  ========================== */
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4">
       {/* HUD */}
-      <div className="w-full max-w-3xl flex justify-between mb-4">
-        <div>
-          Question {index + 1} / {currentQuiz!.questions.length}
-        </div>
+      <div className="w-full max-w-3xl flex justify-between mb-6">
+        <span>
+          Question {index + 1}/{currentQuiz?.questions.length}
+        </span>
         <div className="flex items-center gap-2">
           <Timer className={timeLeft <= 5 ? 'text-red-500 animate-pulse' : ''} />
-          {timeLeft}s
+          <span>{timeLeft}s</span>
         </div>
-        <div>Score: {score}</div>
+        <span className="text-kolly-violet">Score: {score}</span>
       </div>
 
       <AnimatePresence mode="wait">
@@ -171,70 +141,52 @@ const QuizPlayer = () => {
           exit={{ opacity: 0, x: -40 }}
           className="w-full max-w-3xl"
         >
-          <GlassCard
-            className={`transition ${
-              feedback === 'correct'
-                ? 'border-green-500/50 bg-green-500/10'
-                : feedback === 'wrong'
-                ? 'border-red-500/50 bg-red-500/10'
-                : ''
-            }`}
-          >
+          <GlassCard>
             <h2 className="text-2xl font-bold mb-6">{question.text}</h2>
 
-            {/* ANSWERS */}
-            {question.questionType === QuestionType.TEXT && (
-              <InputField
-                label="Your Answer"
-                value={answer}
-                onChange={(e: any) => setAnswer(e.target.value)}
-              />
-            )}
-
-            {question.options?.map(opt => {
-              const selected =
-                question.questionType === QuestionType.CHECKBOX
-                  ? answer.includes?.(opt)
+            <div className="space-y-3 mb-6">
+              {question.options?.map(opt => {
+                const selected = Array.isArray(answer)
+                  ? answer.includes(opt)
                   : answer === opt;
 
-              return (
-                <button
-                  key={opt}
-                  onClick={() => {
-                    if (question.questionType === QuestionType.CHECKBOX) {
-                      setAnswer((prev: string[]) =>
-                        prev.includes(opt)
-                          ? prev.filter(o => o !== opt)
-                          : [...prev, opt]
-                      );
-                    } else {
-                      setAnswer(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() =>
+                      question.questionType === 'CHECKBOX'
+                        ? setAnswer(prev =>
+                            Array.isArray(prev)
+                              ? prev.includes(opt)
+                                ? prev.filter(v => v !== opt)
+                                : [...prev, opt]
+                              : [opt]
+                          )
+                        : setAnswer(opt)
                     }
-                  }}
-                  className={`w-full p-4 mb-3 rounded border text-left ${
-                    selected
-                      ? 'bg-kolly-violet text-white'
-                      : 'bg-white/5 border-white/10'
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
+                    className={`w-full p-3 rounded border text-left ${
+                      selected
+                        ? 'bg-kolly-violet border-kolly-violet'
+                        : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
 
-            <div className="flex justify-end mt-4">
+            <div className="flex justify-end">
               <NeonButton
-                disabled={!answer || !!feedback}
+                disabled={!answer || feedback !== null}
                 onClick={() => handleSubmit()}
               >
-                {feedback ? (
-                  feedback === 'correct' ? (
-                    <CheckCircle />
-                  ) : (
-                    <XCircle />
-                  )
+                {feedback === 'correct' ? (
+                  <CheckCircle />
+                ) : feedback === 'wrong' ? (
+                  <XCircle />
                 ) : (
-                  'LOCK ANSWER'
+                  'Lock Answer'
                 )}
               </NeonButton>
             </div>
