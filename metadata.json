@@ -1,4 +1,8 @@
 {
-  "name": "VibeCheck Kollywood",
-  "description": "A Cyberpunk-Kollywood aesthetic quiz platform for Tamil pop culture enthusiasts. Features daily challenges, an admin dashboard for content creation, and AI-generated trivia."
+  "name": "Cyber-Kollywood Quiz",
+  "description": "A Cyber-Kollywood themed pop culture quiz app featuring daily challenges, leaderboards, and AI-powered question generation.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
 }
