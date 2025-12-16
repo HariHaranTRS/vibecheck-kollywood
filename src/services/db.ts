@@ -1,71 +1,74 @@
-import { Quiz, Score, User, LeaderboardEntry } from '../types';
-import { INITIAL_QUESTIONS } from '../constants';
+import { Quiz, Score, LeaderboardEntry } from '../types';
 
-const KEY_QUIZZES = 'ck_quizzes';
-const KEY_SCORES = 'ck_scores';
-const KEY_USERS = 'ck_users';
+/* =====================
+   LocalStorage Keys
+===================== */
+const QUIZ_KEY = 'ck_quizzes';
+const SCORE_KEY = 'ck_scores';
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+/* =====================
+   Helpers
+===================== */
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-// USER
-export const saveUser = async (user: User): Promise<void> => {
-  const users = JSON.parse(localStorage.getItem(KEY_USERS) || '{}');
-  users[user.uid] = user;
-  localStorage.setItem(KEY_USERS, JSON.stringify(users));
+const getAllQuizzes = (): Quiz[] =>
+  JSON.parse(localStorage.getItem(QUIZ_KEY) || '[]');
+
+const saveAllQuizzes = (quizzes: Quiz[]) =>
+  localStorage.setItem(QUIZ_KEY, JSON.stringify(quizzes));
+
+/* =====================
+   Quiz Logic
+===================== */
+export const saveQuiz = async (quiz: Quiz) => {
+  await delay(300);
+  const quizzes = getAllQuizzes();
+  const index = quizzes.findIndex(q => q.id === quiz.id);
+
+  if (index >= 0) quizzes[index] = quiz;
+  else quizzes.push(quiz);
+
+  saveAllQuizzes(quizzes);
 };
 
-export const getUser = async (uid: string): Promise<User | null> => {
-  const users = JSON.parse(localStorage.getItem(KEY_USERS) || '{}');
-  return users[uid] || null;
-};
-
-// QUIZ
-export const getDailyQuiz = async (): Promise<Quiz | null> => {
+export const getTodayQuiz = async (): Promise<Quiz | null> => {
   await delay(300);
   const today = new Date().toISOString().split('T')[0];
-  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(KEY_QUIZZES) || '[]');
-
-  let quiz = quizzes.find(q => q.date === today && q.published);
-
-  if (!quiz && quizzes.length === 0) {
-    const mockQuiz: Quiz = {
-      id: 'demo',
-      date: today,
-      title: 'Daily Kollywood Blast',
-      questions: INITIAL_QUESTIONS as any,
-      published: true
-    };
-    quizzes.push(mockQuiz);
-    localStorage.setItem(KEY_QUIZZES, JSON.stringify(quizzes));
-    return mockQuiz;
-  }
-
-  return quiz || null;
+  return getAllQuizzes().find(q => q.date === today && q.published) || null;
 };
 
-export const saveQuiz = async (quiz: Quiz): Promise<void> => {
-  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(KEY_QUIZZES) || '[]');
-  const index = quizzes.findIndex(q => q.id === quiz.id);
-  index >= 0 ? (quizzes[index] = quiz) : quizzes.push(quiz);
-  localStorage.setItem(KEY_QUIZZES, JSON.stringify(quizzes));
+export const getArchivedQuizzes = async (): Promise<Quiz[]> => {
+  await delay(300);
+  const today = new Date().toISOString().split('T')[0];
+  return getAllQuizzes().filter(q => q.date < today && q.published);
 };
 
-// SCORES
-export const submitScore = async (score: Score): Promise<void> => {
-  const scores: Score[] = JSON.parse(localStorage.getItem(KEY_SCORES) || '[]');
+/* =====================
+   Score Logic
+===================== */
+export const submitScore = async (score: Score) => {
+  await delay(200);
+  const scores: Score[] = JSON.parse(localStorage.getItem(SCORE_KEY) || '[]');
   scores.push(score);
-  localStorage.setItem(KEY_SCORES, JSON.stringify(scores));
+  localStorage.setItem(SCORE_KEY, JSON.stringify(scores));
 };
 
 export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
-  const scores: Score[] = JSON.parse(localStorage.getItem(KEY_SCORES) || '[]');
-  const totals: Record<string, number> = {};
+  await delay(300);
+  const scores: Score[] = JSON.parse(localStorage.getItem(SCORE_KEY) || '[]');
+
+  const map: Record<string, number> = {};
 
   scores.forEach(s => {
-    totals[s.userName] = (totals[s.userName] || 0) + s.score;
+    map[s.userName] = (map[s.userName] || 0) + s.score;
   });
 
-  return Object.entries(totals)
-    .map(([name, score], i) => ({ rank: i + 1, userName: name, totalScore: score }))
-    .sort((a, b) => b.totalScore - a.totalScore);
+  return Object.entries(map)
+    .map(([userName, totalScore], i) => ({
+      rank: i + 1,
+      userName,
+      totalScore
+    }))
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
 };
