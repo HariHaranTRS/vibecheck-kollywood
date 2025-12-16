@@ -1,110 +1,96 @@
-import { Quiz, Score, User, LeaderboardEntry } from '../types';
-import { INITIAL_QUESTIONS } from '../constants';
+import { Quiz, Score, LeaderboardEntry } from '../types';
 
-/* ===========================
-   LocalStorage Keys
-=========================== */
-const QUIZ_KEY = 'ck_quizzes';
-const SCORE_KEY = 'ck_scores';
-const USER_KEY = 'ck_users';
+/**
+ * STORAGE KEYS
+ */
+const KEY_QUIZZES = 'ck_quizzes';
+const KEY_SCORES = 'ck_scores';
 
-/* ===========================
-   Helpers
-=========================== */
+/**
+ * Helpers
+ */
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+const todayISO = () => new Date().toISOString().split('T')[0];
 
-/* ===========================
-   USER
-=========================== */
-export const saveUser = async (user: User) => {
-  const users = JSON.parse(localStorage.getItem(USER_KEY) || '{}');
-  users[user.uid] = user;
-  localStorage.setItem(USER_KEY, JSON.stringify(users));
-};
+/**
+ * =========================
+ * QUIZ MANAGEMENT
+ * =========================
+ */
 
-export const getUser = async (uid: string): Promise<User | null> => {
-  const users = JSON.parse(localStorage.getItem(USER_KEY) || '{}');
-  return users[uid] || null;
-};
+export const saveQuiz = async (quiz: Quiz): Promise<void> => {
+  await delay(200);
+  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(KEY_QUIZZES) || '[]');
+  const idx = quizzes.findIndex(q => q.id === quiz.id);
 
-/* ===========================
-   QUIZ
-=========================== */
-export const saveQuiz = async (quiz: Quiz) => {
-  await delay(300);
-  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(QUIZ_KEY) || '[]');
-
-  const index = quizzes.findIndex(q => q.id === quiz.id);
-  if (index >= 0) quizzes[index] = quiz;
+  if (idx >= 0) quizzes[idx] = quiz;
   else quizzes.push(quiz);
 
-  localStorage.setItem(QUIZ_KEY, JSON.stringify(quizzes));
+  localStorage.setItem(KEY_QUIZZES, JSON.stringify(quizzes));
 };
 
 export const getDailyQuiz = async (): Promise<Quiz | null> => {
-  await delay(300);
-  const today = new Date().toISOString().split('T')[0];
-  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(QUIZ_KEY) || '[]');
-
-  let quiz = quizzes.find(q => q.date === today && q.published);
-
-  // Auto-create demo quiz on first run
-  if (!quiz && quizzes.length === 0) {
-    const demo: Quiz = {
-      id: 'demo-daily',
-      date: today,
-      title: 'Daily Kollywood Blast',
-      questions: INITIAL_QUESTIONS as any,
-      published: true
-    };
-    await saveQuiz(demo);
-    return demo;
-  }
-
-  return quiz || null;
+  await delay(200);
+  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(KEY_QUIZZES) || '[]');
+  return quizzes.find(q => q.date === todayISO() && q.published) || null;
 };
 
 export const getArchivedQuizzes = async (): Promise<Quiz[]> => {
-  await delay(300);
-  const today = new Date().toISOString().split('T')[0];
-  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(QUIZ_KEY) || '[]');
-  return quizzes.filter(q => q.date < today && q.published);
-};
-
-export const deleteQuiz = async (id: string) => {
-  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(QUIZ_KEY) || '[]');
-  const updated = quizzes.filter(q => q.id !== id);
-  localStorage.setItem(QUIZ_KEY, JSON.stringify(updated));
-};
-
-/* ===========================
-   SCORE & LEADERBOARD
-=========================== */
-export const submitScore = async (score: Score) => {
   await delay(200);
-  const scores: Score[] = JSON.parse(localStorage.getItem(SCORE_KEY) || '[]');
-  scores.push(score);
-  localStorage.setItem(SCORE_KEY, JSON.stringify(scores));
+  const quizzes: Quiz[] = JSON.parse(localStorage.getItem(KEY_QUIZZES) || '[]');
+  return quizzes.filter(q => q.date < todayISO() && q.published);
 };
 
-export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
-  await delay(300);
-  const scores: Score[] = JSON.parse(localStorage.getItem(SCORE_KEY) || '[]');
+/**
+ * =========================
+ * SCORING
+ * =========================
+ */
 
-  const totals: Record<string, { name: string; total: number }> = {};
+export const submitScore = async (score: Score): Promise<void> => {
+  await delay(100);
+  const scores: Score[] = JSON.parse(localStorage.getItem(KEY_SCORES) || '[]');
+  scores.push(score);
+  localStorage.setItem(KEY_SCORES, JSON.stringify(scores));
+};
+
+/**
+ * DAILY LEADERBOARD (today only)
+ */
+export const getDailyLeaderboard = async (): Promise<LeaderboardEntry[]> => {
+  await delay(200);
+  const scores: Score[] = JSON.parse(localStorage.getItem(KEY_SCORES) || '[]');
+
+  const today = todayISO();
+  const filtered = scores.filter(s => s.quizId.includes(today));
+
+  return buildLeaderboard(filtered);
+};
+
+/**
+ * ALL-TIME LEADERBOARD
+ */
+export const getAllTimeLeaderboard = async (): Promise<LeaderboardEntry[]> => {
+  await delay(200);
+  const scores: Score[] = JSON.parse(localStorage.getItem(KEY_SCORES) || '[]');
+  return buildLeaderboard(scores);
+};
+
+/**
+ * =========================
+ * INTERNAL
+ * =========================
+ */
+
+const buildLeaderboard = (scores: Score[]): LeaderboardEntry[] => {
+  const totals: Record<string, number> = {};
 
   scores.forEach(s => {
-    if (!totals[s.userId]) {
-      totals[s.userId] = { name: s.userName, total: 0 };
-    }
-    totals[s.userId].total += s.score;
+    totals[s.userName] = (totals[s.userName] || 0) + s.score;
   });
 
-  return Object.values(totals)
-    .sort((a, b) => b.total - a.total)
-    .map((u, i) => ({
-      rank: i + 1,
-      userName: u.name,
-      totalScore: u.total
-    }));
+  return Object.entries(totals)
+    .map(([userName, totalScore]) => ({ userName, totalScore, rank: 0 }))
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
 };
