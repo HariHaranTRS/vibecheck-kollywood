@@ -5,7 +5,7 @@ export const INITIAL_QUESTIONS = [
   {
     id: 'q1',
     text: "Who is known as 'Superstar' in Tamil Cinema?",
-    mediaType: 'NONE',https://github.com/HariHaranTRS/vibecheck-kollywood/new/main
+    mediaType: 'NONE',
     questionType: 'RADIO',
     options: ['Kamal Haasan', 'Rajinikanth', 'Vijay', 'Ajith'],
     correctAnswer: 'Rajinikanth',
